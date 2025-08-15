@@ -1,3 +1,10 @@
+# [5.7.0](https://github.com/idosal/mcp-ui/compare/v5.6.2...v5.7.0) (2025-08-15)
+
+
+### Features
+
+* add sandbox permissions instead of an override ([#83](https://github.com/idosal/mcp-ui/issues/83)) ([b1068e9](https://github.com/idosal/mcp-ui/commit/b1068e9e87caa2b4302bf145a33efdfd1af05c1d))
+
 ## [5.6.2](https://github.com/idosal/mcp-ui/compare/v5.6.1...v5.6.2) (2025-08-05)
 
 
