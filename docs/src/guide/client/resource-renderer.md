@@ -59,6 +59,9 @@ interface UIResourceRendererProps {
 - **`htmlProps`**: Optional props for the `<HTMLResourceRenderer>`
   - **`style`**: Optional custom styles for iframe-based resources
   - **`proxy`**: Optional. A URL to a static "proxy" script for rendering external URLs. See [Using a Proxy for External URLs](./using-a-proxy.md) for details.
+  - **`sandboxPermissions`**: Optional string to add additional iframe sandbox permissions. These are added to the default sandbox permissions:
+    - For external URLs: `'allow-scripts allow-same-origin'`
+    - For raw HTML iframes: `'allow-scripts'`
   - **`iframeProps`**: Optional props passed to iframe elements (for HTML/URL resources)
     - **`ref`**: Optional React ref to access the underlying iframe element
   - **`iframeRenderData`**: Optional `Record<string, unknown>` to pass data to the iframe upon rendering. This enables advanced use cases where the parent application needs to provide initial state or configuration to the sandboxed iframe content.
