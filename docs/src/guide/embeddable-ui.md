@@ -149,7 +149,7 @@ window.parent.postMessage(
 - indicates that the iframe is ready to receive messages
 
 **Example:**
-See [Render Data](#render-data)
+See [Render Data](#passing-render-data-to-the-iframe)
 
 ### `ui-size-change`
 
