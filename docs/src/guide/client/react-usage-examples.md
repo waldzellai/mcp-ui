@@ -385,4 +385,211 @@ This pattern is crucial for building responsive and user-friendly UIs, especiall
 
 ---
 
+## Custom Theming with Render Data
+
+The `UIResourceRenderer` supports passing custom styling data to HTML iframes through the [`htmlProps.iframeRenderData`](/guide/client/resource-renderer#props-details) mechanism. This allows you to theme iframe content dynamically based on your host application's theme, user preferences, or other runtime conditions.
+
+### How It Works
+
+The theming flow involves several coordinated steps:
+
+1. **Host Configuration**: The host renders `<UIResourceRenderer>` with `htmlProps.iframeRenderData` containing your custom CSS or theme data
+2. **Parameter Addition**: The SDK automatically adds `?waitForRenderData=true` to the iframe URL
+3. **Iframe Waiting**: The iframe recognizes this parameter and waits before rendering
+4. **Data Transfer**: The SDK sends a `ui-lifecycle-iframe-render-data` message with the render data when the iframe is ready
+5. **Theme Application**: The iframe receives the data and applies the custom styling
+
+### Example: Dynamic Theme Support
+
+Here's a complete example showing how to implement dynamic theming:
+
+#### Host Application Setup
+
+```tsx
+import React, { useState } from 'react';
+import { UIResourceRenderer } from '@mcp-ui/client';
+
+const ThemeableApp: React.FC = () => {
+  const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('light');
+
+  // Define your theme styles
+  const themeStyles = {
+    light: `
+      :root {
+        --bg-color: #ffffff;
+        --text-color: #333333;
+        --primary-color: #007bff;
+        --border-color: #e0e0e0;
+      }
+      body {
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+    `,
+    dark: `
+      :root {
+        --bg-color: #1a1a1a;
+        --text-color: #ffffff;
+        --primary-color: #4a9eff;
+        --border-color: #404040;
+      }
+      body {
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+    `
+  };
+
+  return (
+    <div style={{ padding: '20px' }}>
+      <h1>Themed MCP-UI Example</h1>
+      
+      {/* Theme switcher */}
+      <div style={{ marginBottom: '20px' }}>
+        <button 
+          onClick={() => setCurrentTheme(currentTheme === 'light' ? 'dark' : 'light')}
+        >
+          Switch to {currentTheme === 'light' ? 'Dark' : 'Light'} Theme
+        </button>
+      </div>
+
+      {/* Render the themed iframe */}
+      <div>
+        <UIResourceRenderer
+          resource={themedHtmlResource}
+          onUIAction={handleUIAction}
+          htmlProps={{
+            iframeRenderData: {
+              customCss: themeStyles[currentTheme],
+              theme: currentTheme,
+              // You can pass any additional data your iframe needs
+              additionalConfig: {
+                animations: true,
+                fontSize: '16px'
+              }
+            }
+          }}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default ThemeableApp;
+```
+
+#### Iframe Script Implementation
+
+In your iframe's HTML content, implement the render data lifecycle:
+
+```html
+<script>
+// In the iframe's script
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get("waitForRenderData") === "true") {
+  let customRenderData = null;
+
+  // The parent will send this message on load or when we notify it we're ready
+  window.addEventListener("message", (event) => {
+    // Add origin checks for security in production
+    if (event.data.type === "ui-lifecycle-iframe-render-data") {
+      // If the iframe has already received data, we don't need to do anything
+      if (customRenderData) {
+        return;
+      } else {
+        customRenderData = event.data.payload.renderData;
+        // Now you can render the UI with the received data
+        renderUI(customRenderData);
+      }
+    }
+  });
+  
+  // We can let the parent know we're ready to receive data
+  window.parent.postMessage({ type: "ui-lifecycle-iframe-ready" }, "*");
+} else {
+  // If the iframe doesn't need to wait for data, we can render the default UI immediately
+  renderUI();
+}
+
+function renderUI(renderData = null) {
+  const statusEl = document.getElementById('status');
+  
+  if (renderData) {
+    // Apply custom CSS
+    if (renderData.customCss) {
+      const styleElement = document.createElement('style');
+      styleElement.textContent = renderData.customCss;
+      document.head.appendChild(styleElement);
+    }
+    
+    // Use other render data
+    if (statusEl) {
+      statusEl.innerHTML = \\`
+        <strong>✅ Theme Applied!</strong><br>
+        Theme: \${renderData.theme || 'unknown'}<br>
+        Additional config: \${JSON.stringify(renderData.additionalConfig || {}, null, 2)}
+      \\`;
+    }
+    
+    // You can access any custom data passed in iframeRenderData
+    console.log('Render data received:', renderData);
+  } else {
+    // Default rendering without theme data
+    if (statusEl) {
+      statusEl.innerHTML = '<em>No theme data received - using defaults</em>';
+    }
+  }
+}
+</script>
+```
+
+#### Passing Multiple Theme Variables
+
+```tsx
+// In your host component
+const advancedThemeData = {
+  colors: {
+    primary: '#007bff',
+    secondary: '#6c757d',
+    success: '#28a745',
+    warning: '#ffc107',
+    danger: '#dc3545'
+  },
+  fonts: {
+    heading: 'Georgia, serif',
+    body: 'Arial, sans-serif',
+    mono: 'Monaco, monospace'
+  },
+  spacing: {
+    sm: '8px',
+    md: '16px',
+    lg: '24px',
+    xl: '32px'
+  }
+};
+
+// Pass to iframe
+<UIResourceRenderer
+  resource={resource}
+  onUIAction={handleUIAction}
+  htmlProps={{
+    iframeRenderData: { themeConfig: advancedThemeData }
+  }}
+/>
+```
+
+### Benefits of This Approach
+
+- **Dynamic Theming**: Themes can change at runtime without reloading the iframe
+- **Consistent Styling**: Ensures iframe content matches your host application's design
+- **Performance**: CSS is injected once rather than being included in every iframe
+- **Flexibility**: You can pass any styling or configuration data, not just CSS
+- **Security**: The iframe explicitly opts into receiving render data
+
+This theming system provides a powerful way to create cohesive user experiences across your host application and embedded MCP-UI content.
+
+---
+
 That's it! Just use `<UIResourceRenderer />` with the right props and you're ready to render interactive HTML from MCP resources in your React app. The `UIResourceRenderer` automatically detects the resource type and renders the appropriate component internally. If you need more details, check out the [UIResourceRenderer Component](./resource-renderer.md) page.
