@@ -1,3 +1,15 @@
+# [5.8.0](https://github.com/idosal/mcp-ui/compare/v5.7.0...v5.8.0) (2025-08-19)
+
+
+### Bug Fixes
+
+* minor typo ([a0bee9c](https://github.com/idosal/mcp-ui/commit/a0bee9c85e5ee02e021ba687940ced38220445fe))
+
+
+### Features
+
+* add convenience function isUIResource to client SDK ([#86](https://github.com/idosal/mcp-ui/issues/86)) ([607c6ad](https://github.com/idosal/mcp-ui/commit/607c6add3567bb60c45accf3e1b25a38ed284a6f))
+
 # [5.7.0](https://github.com/idosal/mcp-ui/compare/v5.6.2...v5.7.0) (2025-08-15)
 
 
