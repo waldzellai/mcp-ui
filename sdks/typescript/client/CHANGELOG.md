@@ -1,3 +1,10 @@
+## [5.8.1](https://github.com/idosal/mcp-ui/compare/v5.8.0...v5.8.1) (2025-08-20)
+
+
+### Bug Fixes
+
+* move react dependencies to be peer dependencies ([#91](https://github.com/idosal/mcp-ui/issues/91)) ([f672f3e](https://github.com/idosal/mcp-ui/commit/f672f3efc1c2ba2fbae16f9dcdc2142c2b4bd920)), closes [#90](https://github.com/idosal/mcp-ui/issues/90)
+
 # [5.8.0](https://github.com/idosal/mcp-ui/compare/v5.7.0...v5.8.0) (2025-08-19)
 
 
