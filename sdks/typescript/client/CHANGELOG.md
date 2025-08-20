@@ -1,3 +1,10 @@
+# [5.9.0](https://github.com/idosal/mcp-ui/compare/v5.8.1...v5.9.0) (2025-08-20)
+
+
+### Features
+
+* support passing resource metadata ([#87](https://github.com/idosal/mcp-ui/issues/87)) ([f1c1c9b](https://github.com/idosal/mcp-ui/commit/f1c1c9b62dd74c63045b295eb388181843ac772a))
+
 ## [5.8.1](https://github.com/idosal/mcp-ui/compare/v5.8.0...v5.8.1) (2025-08-20)
 
 
