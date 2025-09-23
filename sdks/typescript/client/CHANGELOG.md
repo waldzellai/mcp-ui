@@ -1,3 +1,10 @@
+# [5.12.0](https://github.com/idosal/mcp-ui/compare/v5.11.0...v5.12.0) (2025-09-23)
+
+
+### Features
+
+* add ui-request-render-data message type ([#111](https://github.com/idosal/mcp-ui/issues/111)) ([26135ce](https://github.com/idosal/mcp-ui/commit/26135ce2c7f7d586b0b81a03623cd77dc1bc7f90))
+
 # [5.9.0](https://github.com/idosal/mcp-ui/compare/v5.8.1...v5.9.0) (2025-08-20)
 
 
