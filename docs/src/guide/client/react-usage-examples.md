@@ -593,6 +593,83 @@ function renderUI(renderData = null) {
 </script>
 ```
 
+#### Alternative: Using ui-request-render-data
+
+Instead of relying on the `ui-lifecycle-iframe-ready` lifecycle event, you can explicitly request render data when needed:
+
+```html
+<script>
+// Alternative approach: explicit render data request
+async function requestRenderData() {
+  return new Promise((resolve, reject) => {
+    const messageId = crypto.randomUUID();
+    
+    window.parent.postMessage(
+      { type: 'ui-request-render-data', messageId },
+      '*'
+    );
+
+    function handleMessage(event) {
+      if (event.data?.type !== 'ui-lifecycle-iframe-render-data') return;
+      if (event.data.messageId !== messageId) return;
+      
+      window.removeEventListener('message', handleMessage);
+      
+      const { renderData, error } = event.data.payload;
+      if (error) return reject(error);
+      return resolve(renderData);
+    }
+
+    window.addEventListener('message', handleMessage);
+  });
+}
+
+// Use it when your iframe is ready
+async function initializeWithTheme() {
+  try {
+    const renderData = await requestRenderData();
+    renderUI(renderData);
+  } catch (error) {
+    console.error('Failed to get render data:', error);
+    renderUI(); // Fallback to default rendering
+  }
+}
+
+// Initialize when ready
+initializeWithTheme();
+
+function renderUI(renderData = null) {
+  // Same renderUI function as above
+  const statusEl = document.getElementById('status');
+  
+  if (renderData) {
+    // Apply custom CSS
+    if (renderData.customCss) {
+      const styleElement = document.createElement('style');
+      styleElement.textContent = renderData.customCss;
+      document.head.appendChild(styleElement);
+    }
+    
+    // Use other render data
+    if (statusEl) {
+      statusEl.innerHTML = `
+        <strong>✅ Theme Applied!</strong><br>
+        Theme: ${renderData.theme || 'unknown'}<br>
+        Additional config: ${JSON.stringify(renderData.additionalConfig || {}, null, 2)}
+      `;
+    }
+    
+    console.log('Render data received:', renderData);
+  } else {
+    // Default rendering without theme data
+    if (statusEl) {
+      statusEl.innerHTML = '<em>No theme data received - using defaults</em>';
+    }
+  }
+}
+</script>
+```
+
 #### Passing Multiple Theme Variables
 
 ```tsx
