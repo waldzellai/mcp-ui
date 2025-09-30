@@ -18,8 +18,17 @@ MCP-UI is a framework for delivering interactive UI components through the Model
 ### Key Components
 
 - **@mcp-ui/server**: Server-side utilities for generating UI resources
-- **@mcp-ui/client**: Client-side components for rendering UI resources
+- **@mcp-ui/client**: Client-side components for rendering UI resources  
 - **UIResource**: The core data structure representing a UI component
+
+### About This Guide
+
+This guide covers:
+1. **Framework Features** - Built-in capabilities provided by MCP-UI
+2. **Design Patterns** - Recommended application-level patterns for common use cases
+3. **Advanced Implementations** - Sophisticated patterns demonstrating what's possible with MCP-UI
+
+**Note**: The advanced patterns in sections 5-6 are **application-level implementations** that demonstrate what's possible to build with MCP-UI, not built-in framework features. They require additional implementation work and infrastructure beyond MCP-UI itself.
 
 ---
 
@@ -27,8 +36,8 @@ MCP-UI is a framework for delivering interactive UI components through the Model
 
 ### Required Tools
 
-- Node.js v22.x or later
-- pnpm v9+ (or npm/yarn)
+- Node.js v18.x or later (v22.x recommended)
+- npm, yarn, or pnpm (pnpm v9+ recommended for monorepo development)
 - TypeScript 5.0+
 
 ### Installation
@@ -67,80 +76,102 @@ my-mcp-server/
 The most straightforward way to create a UI resource is using inline HTML:
 
 ```typescript
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { createUIResource } from '@mcp-ui/server';
 
-const server = new McpServer({
+// Initialize MCP server
+const server = new Server({
   name: "simple-ui-server",
   version: "1.0.0"
-});
-
-// Register a tool that returns a simple HTML UI
-server.registerTool('show-welcome', {
-  title: 'Show Welcome Message',
-  description: 'Displays a welcome message UI',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      username: {
-        type: 'string',
-        description: 'User name to display'
-      }
-    },
-    required: ['username']
+}, {
+  capabilities: {
+    tools: {}
   }
-}, async (args) => {
-  const username = args.username as string;
-  
-  const htmlContent = `
-    <div style="padding: 20px; border: 2px solid #4CAF50; border-radius: 8px;">
-      <h1>Welcome, ${username}!</h1>
-      <p>This is your personalized dashboard.</p>
-    </div>
-  `;
-
-  const uiResource = createUIResource({
-    uri: `ui://welcome/${username}`,
-    content: { 
-      type: 'rawHtml', 
-      htmlString: htmlContent 
-    },
-    encoding: 'text',
-  });
-
-  return {
-    content: [uiResource],
-  };
 });
+
+// Set up tool request handler
+server.setRequestHandler('tools/call', async (request) => {
+  if (request.params.name === 'show-welcome') {
+    const username = request.params.arguments?.username as string;
+    
+    // IMPORTANT: Always sanitize user input to prevent XSS attacks
+    const sanitizedUsername = escapeHtml(username);
+    
+    const htmlContent = `
+      <div style="padding: 20px; border: 2px solid #4CAF50; border-radius: 8px;">
+        <h1>Welcome, ${sanitizedUsername}!</h1>
+        <p>This is your personalized dashboard.</p>
+      </div>
+    `;
+
+    const uiResource = createUIResource({
+      uri: `ui://welcome/${sanitizedUsername}`,
+      mimeType: 'text/html',
+      text: htmlContent
+    });
+
+    return {
+      content: [uiResource],
+    };
+  }
+  
+  throw new Error('Unknown tool');
+});
+
+// List available tools
+server.setRequestHandler('tools/list', async () => ({
+  tools: [{
+    name: 'show-welcome',
+    description: 'Displays a welcome message UI',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        username: {
+          type: 'string',
+          description: 'User name to display'
+        }
+      },
+      required: ['username']
+    }
+  }]
+}));
+
+// Helper function for XSS prevention
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 ```
+
+**Note**: The exact MCP SDK API may vary. This example shows a common pattern. Always refer to the official `@modelcontextprotocol/sdk` documentation for the current API.
 
 ### 2. External URL UI Resource
 
-For embedding external content:
+For embedding external content (rendered in an iframe):
 
 ```typescript
-server.registerTool('show-dashboard', {
-  title: 'Show Dashboard',
-  description: 'Displays an external dashboard',
-  inputSchema: {
-    type: 'object',
-    properties: {}
-  }
-}, async () => {
-  const uiResource = createUIResource({
-    uri: 'ui://dashboard',
-    content: { 
-      type: 'externalUrl', 
-      iframeUrl: 'https://example.com/dashboard'
-    },
-    encoding: 'text',
-  });
+server.setRequestHandler('tools/call', async (request) => {
+  if (request.params.name === 'show-dashboard') {
+    const uiResource = createUIResource({
+      uri: 'ui://dashboard',
+      mimeType: 'text/uri-list',
+      text: 'https://example.com/dashboard'
+    });
 
-  return {
-    content: [uiResource],
-  };
+    return {
+      content: [uiResource],
+    };
+  }
+  
+  throw new Error('Unknown tool');
 });
 ```
+
+**Security Note**: When embedding external URLs, ensure they are from trusted sources to prevent security risks. The content will be loaded in an iframe within the MCP client.
 
 ### 3. Basic Client-Side Rendering
 
@@ -175,9 +206,11 @@ export default App;
 
 ## Intermediate Patterns
 
+**Note**: The patterns in this section are **application-level design patterns** - recommended ways to structure your code when working with MCP-UI, not built-in framework features.
+
 ### 1. UI Resource Factory Pattern
 
-Create reusable factories for common UI patterns:
+Create reusable factories for common UI patterns. This is a standard software design pattern applied to MCP-UI:
 
 ```typescript
 // ui/factories.ts
@@ -236,8 +269,8 @@ export class UIResourceFactory {
 
     return createUIResource({
       uri: `ui://card/${Date.now()}`,
-      content: { type: 'rawHtml', htmlString: htmlContent },
-      encoding: 'text',
+      mimeType: 'text/html',
+      text: htmlContent
     });
   }
 
@@ -279,12 +312,14 @@ export class UIResourceFactory {
 
     return createUIResource({
       uri: `ui://table/${Date.now()}`,
-      content: { type: 'rawHtml', htmlString: htmlContent },
-      encoding: 'text',
+      mimeType: 'text/html',
+      text: htmlContent
     });
   }
 }
 ```
+
+**Note**: Remember to sanitize any user data before including it in HTML to prevent XSS vulnerabilities.
 
 ### 2. Stateful UI Resources with Actions
 
@@ -360,8 +395,8 @@ server.registerTool('create-feedback-form', {
   return {
     content: [createUIResource({
       uri: `ui://feedback/${topic}`,
-      content: { type: 'rawHtml', htmlString: htmlContent },
-      encoding: 'text',
+      mimeType: 'text/html',
+      text: htmlContent
     })],
   };
 });
@@ -423,9 +458,11 @@ server.registerTool('execute-query', {
 
 ## Advanced Design Patterns
 
+**Note**: The patterns in this section demonstrate advanced application-level implementations. They show what's possible with MCP-UI but require additional implementation beyond the basic framework.
+
 ### 1. Remote DOM Rendering Pattern
 
-Use Remote DOM for consistency with host application styling:
+Remote DOM allows UI resources to be rendered using the host application's native component library, ensuring visual consistency. MCP-UI supports this via the `application/vnd.mcp-ui.remote-dom` MIME type:
 
 ```typescript
 // This approach sends JavaScript that the client executes
@@ -454,20 +491,20 @@ server.registerTool('show-remote-dom-ui', {
   return {
     content: [createUIResource({
       uri: 'ui://remote-dom-example',
-      content: { 
-        type: 'remoteDom', 
-        script: remoteDomScript 
-      },
-      encoding: 'text',
-      mimeType: 'application/vnd.mcp-ui.remote-dom+javascript'
+      mimeType: 'application/vnd.mcp-ui.remote-dom',
+      text: remoteDomScript
     })],
   };
 });
 ```
 
+**Note**: Remote DOM implementation details may vary. Refer to the official MCP-UI documentation for the current Remote DOM API and supported features.
+
 ### 2. Lazy-Loading UI Components
 
-Optimize performance by loading heavy UIs on demand:
+**Pattern Type**: Application-Level Performance Optimization
+
+This pattern demonstrates server-side caching to optimize performance when generating computationally expensive UI resources:
 
 ```typescript
 class LazyUIManager {
@@ -520,9 +557,13 @@ server.registerTool('show-chart', {
 });
 ```
 
+**Note**: This is a server-side caching strategy. For client-side lazy loading, consider using standard web techniques like dynamic imports and code splitting in your client application.
+
 ### 3. Composite UI Pattern
 
-Combine multiple UI resources into a cohesive interface:
+**Pattern Type**: Application-Level Design Pattern
+
+This pattern demonstrates how to compose complex UIs from multiple components within a single UI resource:
 
 ```typescript
 interface DashboardConfig {
@@ -586,8 +627,8 @@ class DashboardBuilder {
 
     return createUIResource({
       uri: `ui://dashboard/${Date.now()}`,
-      content: { type: 'rawHtml', htmlString: htmlContent },
-      encoding: 'text',
+      mimeType: 'text/html',
+      text: htmlContent
     });
   }
 
@@ -635,11 +676,24 @@ server.registerTool('show-composite-dashboard', {
 
 ## Non-Obvious High-Value Patterns
 
+**⚠️ IMPORTANT**: The patterns in this section are **advanced application-level implementations** that demonstrate sophisticated use cases. They are NOT built-in MCP-UI features. These examples:
+
+- Require significant additional implementation work
+- May need infrastructure beyond MCP-UI (WebSocket servers, state management, etc.)
+- Serve as architectural blueprints, not drop-in solutions
+- Demonstrate the flexibility and potential of MCP-UI
+
+Use these as inspiration for building advanced features in your MCP server applications.
+
+---
+
 ### 1. Progressive Disclosure Pattern
 
 **Use Case**: Complex workflows where showing everything at once is overwhelming.
 
-This pattern reveals UI elements progressively based on user actions, reducing cognitive load while maintaining power-user capabilities.
+**Pattern Type**: Application-Level UI/UX Pattern
+
+This pattern reveals UI elements progressively based on user actions, reducing cognitive load while maintaining power-user capabilities. This is a standard UI/UX pattern implemented using MCP-UI's capabilities.
 
 ```typescript
 interface WorkflowStep {
@@ -798,8 +852,8 @@ class ProgressiveWorkflowUI {
 
     return createUIResource({
       uri: `ui://workflow/${currentStep}`,
-      content: { type: 'rawHtml', htmlString: htmlContent },
-      encoding: 'text',
+      mimeType: 'text/html',
+      text: htmlContent
     });
   }
 
@@ -929,7 +983,11 @@ server.registerTool('start-deployment-workflow', {
 
 **Use Case**: UIs that adapt based on user expertise, preferences, or environmental context.
 
-This pattern creates UIs that intelligently adjust their complexity and features based on contextual signals.
+**Pattern Type**: Application-Level Adaptive Design Pattern
+
+**Infrastructure Required**: User profiling system, preference storage, usage analytics
+
+This pattern creates UIs that intelligently adjust their complexity and features based on contextual signals. This demonstrates an application-level implementation of adaptive UI principles.
 
 ```typescript
 interface UserContext {
@@ -1091,8 +1149,8 @@ class AdaptiveUIGenerator {
 
     return createUIResource({
       uri: `ui://adaptive/${Date.now()}`,
-      content: { type: 'rawHtml', htmlString: htmlContent },
-      encoding: 'text',
+      mimeType: 'text/html',
+      text: htmlContent
     });
   }
 
@@ -1255,7 +1313,15 @@ server.registerTool('show-adaptive-data-view', {
 
 **Use Case**: Multiple users working on shared data or coordinated workflows.
 
-This pattern enables real-time collaborative interfaces where multiple users can see live updates and coordinate actions.
+**Pattern Type**: Application-Level Collaborative System
+
+**Infrastructure Required**:
+- WebSocket server for real-time communication
+- Operational Transform (OT) or CRDT algorithms for conflict resolution
+- Session management and user authentication
+- State synchronization system
+
+This pattern enables real-time collaborative interfaces where multiple users can see live updates and coordinate actions. This demonstrates what's possible when combining MCP-UI with additional real-time infrastructure.
 
 ```typescript
 interface CollaborativeSession {
@@ -1594,8 +1660,8 @@ class CollaborativeUIManager {
 
     return createUIResource({
       uri: `ui://collab/${sessionId}`,
-      content: { type: 'rawHtml', htmlString: htmlContent },
-      encoding: 'text',
+      mimeType: 'text/html',
+      text: htmlContent
     });
   }
 
@@ -1698,48 +1764,129 @@ server.registerTool('start-collaborative-session', {
 });
 ```
 
+**Note**: This example shows the UI structure only. A production implementation would require:
+- WebSocket server infrastructure
+- Proper authentication and authorization
+- Conflict resolution algorithms (Operational Transform or CRDTs)
+- Robust error handling and reconnection logic
+- Security measures against malicious clients
+
 ---
 
 ## Best Practices & Tips
 
-1. **Performance**: Cache UI resources when possible, especially for data that doesn't change frequently
+### 1. Security First
 
-2. **Security**: Always sanitize user input before including it in HTML. Use proper escaping:
-   ```typescript
-   function escapeHtml(unsafe: string): string {
-     return unsafe
-       .replace(/&/g, "&amp;")
-       .replace(/</g, "&lt;")
-       .replace(/>/g, "&gt;")
-       .replace(/"/g, "&quot;")
-       .replace(/'/g, "&#039;");
-   }
-   ```
+**Always sanitize user input** before including it in HTML to prevent XSS attacks:
 
-3. **Accessibility**: Include ARIA labels and keyboard navigation in your UIs
+```typescript
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+```
 
-4. **Error Handling**: Wrap UI generation in try-catch blocks and provide fallback UIs
+When embedding external URLs, validate that they come from trusted sources.
 
-5. **Testing**: Create test utilities to validate UI resources:
-   ```typescript
-   function validateUIResource(resource: any): boolean {
-     return resource.uri && 
-            resource.content && 
-            resource.encoding;
-   }
-   ```
+### 2. Performance Optimization
 
-6. **Documentation**: Document the actions your UIs can emit so clients know what to handle
+- **Cache UI resources** when possible, especially for data that doesn't change frequently
+- **Minimize HTML size** by removing unnecessary whitespace and comments in production
+- **Use efficient data structures** when generating dynamic UIs
+- **Consider pagination** for large datasets instead of sending everything at once
+
+### 3. Accessibility
+
+- Include **ARIA labels** and **semantic HTML** elements
+- Ensure **keyboard navigation** works properly
+- Provide **alternative text** for images and icons
+- Test with **screen readers**
+
+### 4. Error Handling
+
+Wrap UI generation in try-catch blocks and provide fallback UIs:
+
+```typescript
+try {
+  const ui = generateComplexUI(data);
+  return { content: [ui] };
+} catch (error) {
+  console.error('UI generation failed:', error);
+  return {
+    content: [createUIResource({
+      uri: 'ui://error',
+      mimeType: 'text/html',
+      text: '<div style="color: red;">Failed to generate UI. Please try again.</div>'
+    })]
+  };
+}
+```
+
+### 5. Testing
+
+Create test utilities to validate UI resources:
+
+```typescript
+function validateUIResource(resource: any): boolean {
+  return Boolean(
+    resource.uri && 
+    resource.mimeType && 
+    (resource.text || resource.blob)
+  );
+}
+```
+
+### 6. Documentation
+
+- Document the **actions your UIs can emit** so clients know what to handle
+- Provide **examples** of expected UI resource structures
+- Document any **custom MIME types** you use
+- Include **version information** in your UI resources when making breaking changes
 
 ---
 
 ## Conclusion
 
-MCP-UI enables powerful, interactive interfaces within the Model Context Protocol. Starting with simple HTML resources, you can progressively adopt more sophisticated patterns like progressive disclosure, context-aware adaptation, and real-time collaboration. The key is to match the pattern to your specific use case while maintaining simplicity where possible.
+MCP-UI provides a powerful foundation for delivering interactive interfaces through the Model Context Protocol. This guide has covered:
 
-The non-obvious patterns (progressive workflows, adaptive UIs, and collaborative interfaces) shine in specific scenarios:
+1. **Framework Fundamentals**: Core MCP-UI capabilities for creating and rendering UI resources
+2. **Design Patterns**: Application-level patterns for structuring your MCP-UI implementations
+3. **Advanced Implementations**: Sophisticated patterns demonstrating the full potential of MCP-UI
+
+### Key Takeaways
+
+- **Start Simple**: Begin with basic HTML UI resources before attempting complex patterns
+- **Prioritize Security**: Always sanitize user input and validate external content
+- **Framework vs. Application**: Understand what's provided by MCP-UI versus what you need to implement
+- **Match Patterns to Use Cases**: Choose patterns that solve real problems for your users
+
+### When to Use Advanced Patterns
+
+The sophisticated patterns in sections 5-6 shine in specific scenarios:
+
 - **Progressive Disclosure**: Complex multi-step processes (deployments, configurations, onboarding)
-- **Context-Aware UIs**: Applications with diverse user expertise levels or varying usage contexts
+- **Context-Aware UIs**: Applications serving users with diverse expertise levels or usage contexts
 - **Collaborative UIs**: Team workflows, shared document editing, real-time coordination
 
-Choose patterns that add genuine value to your users' experience while keeping implementation complexity manageable.
+Remember that these advanced patterns require additional infrastructure and implementation work beyond MCP-UI itself.
+
+### Next Steps
+
+1. **Explore Official Documentation**: Visit [mcpui.dev](https://mcpui.dev) for the latest API details
+2. **Start with Examples**: Build simple UIs first, then gradually add complexity
+3. **Join the Community**: Engage with the MCP community for support and to share patterns
+4. **Contribute**: Share your own patterns and improvements with the community
+
+### Additional Resources
+
+- **MCP-UI Official Docs**: [https://mcpui.dev](https://mcpui.dev)
+- **Model Context Protocol**: [https://github.com/modelcontextprotocol](https://github.com/modelcontextprotocol)
+- **MCP-UI GitHub**: [https://github.com/idosal/mcp-ui](https://github.com/idosal/mcp-ui)
+
+---
+
+**Disclaimer**: This guide represents best practices and patterns as understood at the time of writing. Always refer to official documentation for the most current API details and recommendations. The advanced patterns shown are educational examples demonstrating possibilities, not production-ready implementations.
